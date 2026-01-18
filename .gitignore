@@ -1,0 +1,29 @@
+# Logs
+*.log
+*.out.log
+*.err.log
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+*.so
+
+# Virtual environments
+venv/
+ENV/
+.env
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Images (optional - remove if you want to track charts)
+# *.png
