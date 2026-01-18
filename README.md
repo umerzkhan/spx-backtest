@@ -30,18 +30,6 @@ python3 backtest_daily.py --output trade_log.xlsx
 | `--interval` | `15m`         | Bar interval                    |
 | `--output`   | `trade_log.xlsx` | Output Excel file            |
 
-## Scheduled Run
-
-A LaunchAgent is configured to run the backtest daily at 10:00 PM Pacific:
-
-```
-~/Library/LaunchAgents/com.spxbacktest.daily.plist
-```
-
-Logs:
-- `~/Documents/SPX Backtest/backtest_daily.out.log`
-- `~/Documents/SPX Backtest/backtest_daily.err.log`
-
 ## Requirements
 
 ```bash
