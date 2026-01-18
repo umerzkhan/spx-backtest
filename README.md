@@ -4,16 +4,17 @@ A Python-based intraday backtest strategy for SPX using 15-minute bars.
 
 ## Strategy Overview
 
-1. **Morning Range (9:30 AM – 1:00 PM ET)**: Compute support (min of Open/Close) and resistance (max of Open/Close).
-2. **Afternoon Session (1:00 PM – 4:00 PM ET)**: Look for entry signals:
-   - **LONG**: Price touches support + 2 consecutive higher highs.
-   - **SHORT**: Price touches resistance + 2 consecutive lower lows.
+1. **Morning Range (9:30 AM – 11:30 AM ET)**: Compute support (min of Open/Close) and resistance (max of Open/Close).
+2. **Signal Session (11:30 AM – 4:00 PM ET)**: Look for entry signals:
+   - **LONG**: Signal bar touches support and opens/closes above it, then the next bar makes a higher high.
+   - **SHORT**: Signal bar touches resistance and opens/closes below it, then the next bar makes a lower low.
+   - **Entry**: Open of the bar after the confirmation bar.
 3. **Exit**: At market close (last 15-min bar of the day).
 
 ## Files
 
 - `backtest_daily.py` — Main backtest script (run daily).
-- `trade_log.xlsx` — Trade log with Date, Type, Entry, Exit, Close, PnL, Result.
+- `trade_log.xlsx` — Trade log with Date, Entry, Exit, Close, Exit Reason, PnL, Win Rate.
 
 ## Usage
 
@@ -39,6 +40,6 @@ pip install yfinance pandas openpyxl
 ## Results (60-day sample)
 
 - **Trades**: 25
-- **Win Rate**: 68%
-- **Max Drawdown**: -25.96
-- **Total PnL**: 173.60
+- **Win Rate**: 72%
+- **Max Drawdown**: -52.70
+- **Total PnL**: 225.81
