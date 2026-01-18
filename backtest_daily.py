@@ -38,24 +38,32 @@ def backtest_unified_15m(df: pd.DataFrame) -> pd.DataFrame:
         pos = None
         entry = None
         entry_time = None
-        for i in range(2, len(afternoon)):
-            curr = afternoon.iloc[i]
-            p1 = afternoon.iloc[i - 1]
-            p2 = afternoon.iloc[i - 2]
+        for i in range(len(afternoon)):
+            # Entry logic: touch first, then confirm over the next 2 bars
+            # Enter on the NEXT bar open after the confirmations
+            if pos is None and i <= len(afternoon) - 4:
+                curr = afternoon.iloc[i]
 
-            if pos is None and curr["Low"] <= sup_level:
-                if curr["High"] > p1["High"] and p1["High"] > p2["High"]:
-                    entry = curr["Close"]
-                    entry_time = afternoon.index[i]
-                    pos = "LONG"
-            elif pos is None and curr["High"] >= res_level:
-                if curr["Low"] < p1["Low"] and p1["Low"] < p2["Low"]:
-                    entry = curr["Close"]
-                    entry_time = afternoon.index[i]
-                    pos = "SHORT"
+                # LONG: touch support, then next 2 bars make higher highs
+                if curr["Low"] <= sup_level:
+                    c1 = afternoon.iloc[i + 1]
+                    c2 = afternoon.iloc[i + 2]
+                    if c2["High"] > c1["High"] and c1["High"] > curr["High"]:
+                        entry = afternoon.iloc[i + 3]["Open"]
+                        entry_time = afternoon.index[i + 3]
+                        pos = "LONG"
+
+                # SHORT: touch resistance, then next 2 bars make lower lows
+                elif curr["High"] >= res_level:
+                    c1 = afternoon.iloc[i + 1]
+                    c2 = afternoon.iloc[i + 2]
+                    if c2["Low"] < c1["Low"] and c1["Low"] < curr["Low"]:
+                        entry = afternoon.iloc[i + 3]["Open"]
+                        entry_time = afternoon.index[i + 3]
+                        pos = "SHORT"
 
             if pos is not None and i == len(afternoon) - 1:
-                exit_price = curr["Close"]
+                exit_price = afternoon.iloc[i]["Close"]
                 pnl = (exit_price - entry) if pos == "LONG" else (entry - exit_price)
                 results.append(
                     {
