@@ -195,6 +195,7 @@ def main() -> None:
     print("Total PnL:", metrics["total_pnl"])
     if output_path:
         print("Saved:", str(output_path))
+        print("\n💡 To view the dashboard, run: streamlit run dashboard.py")
 
 
 if __name__ == "__main__":
