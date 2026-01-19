@@ -22,8 +22,24 @@ A Python-based intraday backtest strategy for SPX using 15-minute bars.
 
 ## Usage
 
+### Daily Incremental Updates
+
+The script is designed to run daily and **incrementally add new data** to the Excel file:
+
 ```bash
 python3 backtest_daily.py --output trade_log.xlsx
+```
+
+**How it works:**
+- Checks existing dates in `trade_log.xlsx`
+- Only processes **new dates** that aren't already in the file
+- **Preserves all historical data** (oldest data remains intact)
+- Since Yahoo Finance provides ~60 days of intraday data, running daily ensures you capture all new trades while maintaining a complete historical record in Excel
+
+**Example output:**
+```
+Found 25 existing dates in Excel. Will skip these and only process new dates.
+Processing 1 new trade(s) for dates: [2026-01-19]
 ```
 
 ### Options
@@ -34,6 +50,53 @@ python3 backtest_daily.py --output trade_log.xlsx
 | `--period`   | `60d`         | Data period (max ~60d for 15m)  |
 | `--interval` | `15m`         | Bar interval                    |
 | `--output`   | `trade_log.xlsx` | Output Excel file            |
+
+### Scheduling (Weekdays)
+
+To run automatically every weekday, you can use:
+
+**macOS (cron):**
+```bash
+# Edit crontab
+crontab -e
+
+# Add this line to run at 5:00 PM ET (after market close) on weekdays
+0 17 * * 1-5 cd /path/to/SPX\ Backtest && /usr/bin/python3 backtest_daily.py
+```
+
+**macOS (LaunchAgent) - Recommended:**
+Create `~/Library/LaunchAgents/com.spxbacktest.daily.plist`:
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.spxbacktest.daily</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/python3</string>
+        <string>/path/to/SPX Backtest/backtest_daily.py</string>
+    </array>
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Weekday</key>
+        <integer>1</integer>
+        <key>Hour</key>
+        <integer>17</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+    <key>RunAtLoad</key>
+    <false/>
+</dict>
+</plist>
+```
+
+Then load it:
+```bash
+launchctl load ~/Library/LaunchAgents/com.spxbacktest.daily.plist
+```
 
 ## Dashboard
 

@@ -17,11 +17,32 @@ def download_data(ticker: str, period: str, interval: str) -> pd.DataFrame:
     return data
 
 
-def backtest_unified_15m(df: pd.DataFrame) -> pd.DataFrame:
+def get_existing_dates(output_path: Path) -> set:
+    """Get set of dates that already exist in the Excel file"""
+    if not output_path.exists():
+        return set()
+    try:
+        existing = pd.read_excel(output_path)
+        if 'Date' in existing.columns:
+            existing['Date'] = pd.to_datetime(existing['Date']).dt.date
+            return set(existing['Date'].unique())
+        return set()
+    except Exception:
+        return set()
+
+
+def backtest_unified_15m(df: pd.DataFrame, existing_dates: set = None) -> pd.DataFrame:
+    """Run backtest, skipping dates that already exist in Excel"""
+    if existing_dates is None:
+        existing_dates = set()
+    
     results = []
     days = df.groupby(df.index.date)
 
     for date, day_data in days:
+        # Skip dates that already exist in Excel
+        if date in existing_dates:
+            continue
         morning = day_data.between_time("09:30", "11:30")
         if len(morning) < 8:
             continue
@@ -150,51 +171,91 @@ def compute_metrics(trade_log: pd.DataFrame) -> dict:
     }
 
 
-def upsert_trade_log(output_path: Path, trade_log: pd.DataFrame) -> pd.DataFrame:
+def append_trade_log(output_path: Path, trade_log: pd.DataFrame) -> pd.DataFrame:
+    """Append new trades to existing Excel file, preserving all historical data"""
     if output_path.exists():
         existing = pd.read_excel(output_path)
-        combined = pd.concat([existing, trade_log], ignore_index=True)
+        # Ensure Date column is in date format for comparison
+        if 'Date' in existing.columns:
+            existing['Date'] = pd.to_datetime(existing['Date']).dt.date
+        if 'Date' in trade_log.columns:
+            trade_log['Date'] = pd.to_datetime(trade_log['Date']).dt.date
+        
+        # Only append new dates (not already in existing)
+        existing_dates = set(existing['Date'].unique()) if 'Date' in existing.columns else set()
+        new_trades = trade_log[~trade_log['Date'].isin(existing_dates)] if 'Date' in trade_log.columns else trade_log
+        
+        if not new_trades.empty:
+            combined = pd.concat([existing, new_trades], ignore_index=True)
+        else:
+            combined = existing.copy()
     else:
         combined = trade_log.copy()
+        if 'Date' in combined.columns:
+            combined['Date'] = pd.to_datetime(combined['Date']).dt.date
 
-    combined["Date"] = pd.to_datetime(combined["Date"]).dt.date
-    combined = combined.drop_duplicates(subset=["Date"], keep="last")
-    combined = combined.sort_values("Date")
+    # Sort by date and remove any duplicates (keep first occurrence for historical data integrity)
+    if 'Date' in combined.columns:
+        combined = combined.sort_values("Date")
+        # Only remove duplicates if same date appears multiple times (shouldn't happen with incremental approach)
+        combined = combined.drop_duplicates(subset=["Date"], keep="first")
+    
     combined.to_excel(output_path, index=False)
     return combined
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="SPX 15m backtest (daily run)")
+    parser = argparse.ArgumentParser(description="SPX 15m backtest (daily run - incremental)")
     parser.add_argument("--ticker", default="^SPX")
     parser.add_argument("--period", default="60d")
     parser.add_argument("--interval", default="15m")
     parser.add_argument("--output", default="trade_log.xlsx")
     args = parser.parse_args()
 
-    data = download_data(args.ticker, args.period, args.interval)
-    trade_log = backtest_unified_15m(data)
-
     output_path = Path(args.output).expanduser().resolve()
+    
+    # Get existing dates to skip processing
+    existing_dates = get_existing_dates(output_path)
+    if existing_dates:
+        print(f"Found {len(existing_dates)} existing dates in Excel. Will skip these and only process new dates.")
+    
+    # Download data (always get last 60 days to ensure we have latest)
+    data = download_data(args.ticker, args.period, args.interval)
+    
+    # Run backtest, skipping existing dates
+    trade_log = backtest_unified_15m(data, existing_dates=existing_dates)
+
     if not trade_log.empty:
+        print(f"Processing {len(trade_log)} new trade(s) for dates: {sorted(trade_log['Date'].unique())}")
         metrics = compute_metrics(trade_log)
         trade_log["Win Rate"] = f'{metrics["win_rate"] * 100:.2f}%'
         trade_log = trade_log[
             ["Date", "Entry", "Exit", "Close", "Exit Reason", "PnL", "Win Rate"]
         ]
-        trade_log = upsert_trade_log(output_path, trade_log)
+        # Append new trades to existing Excel (preserves all historical data)
+        combined_log = append_trade_log(output_path, trade_log)
     else:
-        output_path = None
+        if existing_dates:
+            print("No new trades found. All dates already processed.")
+            # Load existing data for metrics
+            combined_log = pd.read_excel(output_path)
+        else:
+            print("No trades found in the data.")
+            combined_log = pd.DataFrame()
 
-    metrics = compute_metrics(trade_log)
+    # Compute metrics on all data (historical + new)
+    metrics = compute_metrics(combined_log)
 
+    print("\n" + "="*60)
     print("Run time:", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-    print("Trades:", metrics["trades"])
+    print("="*60)
+    print("Total Trades (all time):", metrics["trades"])
     print("Win Rate:", f'{metrics["win_rate"] * 100:.2f}%')
     print("Max Drawdown:", metrics["max_drawdown"])
     print("Total PnL:", metrics["total_pnl"])
-    if output_path:
-        print("Saved:", str(output_path))
+    if output_path.exists():
+        print(f"\nSaved: {str(output_path)}")
+        print(f"Total dates in Excel: {len(combined_log) if not combined_log.empty else 0}")
         print("\n💡 To view the dashboard, run: streamlit run dashboard.py")
 
 
