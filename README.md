@@ -10,9 +10,9 @@ A Python-based intraday backtest strategy for SPX using 15-minute bars.
    - **SHORT**: Signal bar touches resistance and opens/closes below it, then the next bar makes a lower low.
    - **Entry**: Open of the bar after the confirmation bar.
 3. **Exit**: 
-   - **LONG**: Exits at resistance level (profit target).
-   - **SHORT**: Exits at support level (profit target).
-   - **Fallback**: At market close if levels not reached (last 15-min bar of the day).
+   - **LONG**: Price tests resistance AND next candle makes lower low → exit at next candle open (confirmed reversal).
+   - **SHORT**: Price tests support AND next candle makes higher high → exit at next candle open (confirmed reversal).
+   - **Fallback**: At market close if levels not reached or confirmation not met (last 15-min bar of the day).
 
 ## Files
 
@@ -44,6 +44,6 @@ pip install yfinance pandas openpyxl
 
 - **Trades**: 25
 - **Win Rate**: 72.00%
-- **Max Drawdown**: -52.99
-- **Total PnL**: 142.63
-- **Exit Distribution**: ~32% exit at support/resistance levels, ~68% exit at close
+- **Max Drawdown**: -52.70
+- **Total PnL**: 229.60
+- **Exit Distribution**: ~20% exit at confirmed support/resistance levels, ~80% exit at close

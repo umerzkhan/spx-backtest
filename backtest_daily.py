@@ -65,45 +65,50 @@ def backtest_unified_15m(df: pd.DataFrame) -> pd.DataFrame:
                         entry_time = afternoon.index[entry_idx]
                         pos = "SHORT"
 
-            # Exit logic: LONG exits at resistance, SHORT exits at support
-            if pos is not None:
+            # Exit logic: Confirmed exit at support/resistance
+            # LONG: price tests resistance AND next candle makes lower low → exit at next candle open
+            # SHORT: price tests support AND next candle makes higher high → exit at next candle open
+            if pos is not None and i < len(afternoon) - 1:  # Need at least one more bar for confirmation
                 curr = afternoon.iloc[i]
+                next_bar = afternoon.iloc[i + 1]
 
-                # LONG exits at resistance
+                # LONG: price tests resistance AND next candle makes lower low
                 if pos == "LONG" and curr["High"] >= res_level:
-                    exit_price = res_level
-                    pnl = exit_price - entry
-                    results.append(
-                        {
-                            "Date": date,
-                            "Type": pos,
-                            "Entry": entry,
-                            "Exit": exit_price,
-                            "Close": day_close,
-                            "PnL": pnl,
-                            "Result": "Profit" if pnl > 0 else ("Loss" if pnl < 0 else "Flat"),
-                            "Exit Reason": "Resistance Level",
-                        }
-                    )
-                    break
+                    if next_bar["Low"] < curr["Low"]:
+                        exit_price = next_bar["Open"]  # Exit at open of next candle
+                        pnl = exit_price - entry
+                        results.append(
+                            {
+                                "Date": date,
+                                "Type": pos,
+                                "Entry": entry,
+                                "Exit": exit_price,
+                                "Close": day_close,
+                                "PnL": pnl,
+                                "Result": "Profit" if pnl > 0 else ("Loss" if pnl < 0 else "Flat"),
+                                "Exit Reason": "Resistance Confirmed",
+                            }
+                        )
+                        break
 
-                # SHORT exits at support
+                # SHORT: price tests support AND next candle makes higher high
                 elif pos == "SHORT" and curr["Low"] <= sup_level:
-                    exit_price = sup_level
-                    pnl = entry - exit_price
-                    results.append(
-                        {
-                            "Date": date,
-                            "Type": pos,
-                            "Entry": entry,
-                            "Exit": exit_price,
-                            "Close": day_close,
-                            "PnL": pnl,
-                            "Result": "Profit" if pnl > 0 else ("Loss" if pnl < 0 else "Flat"),
-                            "Exit Reason": "Support Level",
-                        }
-                    )
-                    break
+                    if next_bar["High"] > curr["High"]:
+                        exit_price = next_bar["Open"]  # Exit at open of next candle
+                        pnl = entry - exit_price
+                        results.append(
+                            {
+                                "Date": date,
+                                "Type": pos,
+                                "Entry": entry,
+                                "Exit": exit_price,
+                                "Close": day_close,
+                                "PnL": pnl,
+                                "Result": "Profit" if pnl > 0 else ("Loss" if pnl < 0 else "Flat"),
+                                "Exit Reason": "Support Confirmed",
+                            }
+                        )
+                        break
 
             # Fallback exit at end of day
             if pos is not None and i == len(afternoon) - 1:
